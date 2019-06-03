@@ -1,11 +1,14 @@
 package com.example.reciprice.ui;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Intent;
-import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -13,20 +16,26 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import com.bumptech.glide.Glide;
 import com.example.reciprice.R;
 import com.example.reciprice.model.Items;
 import com.example.reciprice.model.Offer;
+import com.example.reciprice.model.Product;
 import com.example.reciprice.model.ProductResponse;
+import com.example.reciprice.model.Recipe;
 import com.example.reciprice.repo.ProductService;
+import com.google.gson.Gson;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class PriceActivity extends AppCompatActivity {
     private String upc;
@@ -41,14 +50,19 @@ public class PriceActivity extends AppCompatActivity {
     private TextView textViewDescription;
     private ProgressBar progressBar;
 
+    private Product product;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_price);
 
-        Intent intent = getIntent();
+
+        Gson gson = new Gson();
+        product = gson.fromJson(getIntent().getStringExtra("upc"), Product.class);
+
         //TODO: make sure names match up from ingredient activity
-        upc = intent.getStringExtra("upc");
+        upc = product.getUpc();
 
         wireWidgets();
 
@@ -82,24 +96,33 @@ public class PriceActivity extends AppCompatActivity {
 
         ProductService service = retrofit.create(ProductService.class);
         Call<ProductResponse> productServiceCall = service.findByUpc(upc);
-        progressBar.setVisibility(View.VISIBLE);
+
 
         productServiceCall.enqueue(new Callback<ProductResponse>() {
             @Override
             public void onResponse(Call<ProductResponse> call, Response<ProductResponse> response) {
-                Items information = response.body().getItems().get(0);
-                List<Offer> newOffers = response.body().getItems().get(0).getOffers();
-                offers.addAll(newOffers);
-                Log.e("offers", offers.toString());
-                priceAdapter.notifyDataSetChanged();
+                Log.e("response", response.body().toString());
+                Log.e("code", response.code() + "");
+                if(response.body().getItems().size() == 0){
+                    Toast.makeText(PriceActivity.this, "No products found. Please try another product.", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+                else{
+                    progressBar.setVisibility(View.VISIBLE);
+                    Items information = response.body().getItems().get(0);
+                    List<Offer> newOffers = response.body().getItems().get(0).getOffers();
+                    offers.addAll(newOffers);
+                    Log.e("offers", offers.toString());
+                    priceAdapter.notifyDataSetChanged();
 
 
-                textViewTitle.setText(information.getTitle());
-                textViewBrand.setText(information.getBrand());
-                textViewDescription.setText(information.getDescription());
-                Glide.with(imageViewImage).load(information.getImages().get(0)).into(imageViewImage);
+                    textViewTitle.setText(information.getTitle());
+                    textViewBrand.setText(information.getBrand());
+                    textViewDescription.setText(information.getDescription());
+                    Glide.with(imageViewImage).load(information.getImages().get(0)).into(imageViewImage);
 
-                progressBar.setVisibility(View.INVISIBLE);
+                    progressBar.setVisibility(View.INVISIBLE);
+                }
             }
 
             @Override
@@ -123,6 +146,13 @@ public class PriceActivity extends AppCompatActivity {
                 Intent intent = new Intent(PriceActivity.this, MainActivity.class);
                 finish();
                 startActivity(intent);
+
+//                Intent mStartActivity = new Intent(PriceActivity.this, MainActivity.class);
+//                int mPendingIntentId = 123456;
+//                PendingIntent mPendingIntent = PendingIntent.getActivity(PriceActivity.this, mPendingIntentId,    mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
+//                AlarmManager mgr = (AlarmManager)PriceActivity.this.getSystemService(PriceActivity.this.ALARM_SERVICE);
+//                mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+//                System.exit(0);
                 break;
             default:
                 return super.onOptionsItemSelected(item);
